@@ -6,23 +6,44 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
 # tree = up.open("result.root")["result"]
-tree = up.open("result.root")["result"]
+tree = up.open(mcmcu.output)["result"]
 
-with PdfPages('osc_pars_var.pdf') as pdf:
+with PdfPages('parameter_variation_later.pdf') as pdf:
     for var in mcmcu.osc_variables:
+        print (var.tree_var_name)
+        values = var.change_of_var(mcmcu.get_var_array(tree, var))[:10000]
+        plt.plot(values)
+        plt.xlabel('Step')
+        plt.ylabel(var.nice_name+" "+var.unit)
+        plt.title(var.nice_name+' variations NOvA-only (10000 first steps after burnin)')
+        pdf.savefig()
+        plt.close()
+        
+    for var in mcmcu.nova_syst_variables:
         print (var.tree_var_name)
         values = var.change_of_var(mcmcu.get_var_array(tree, var))[:1000]
         plt.plot(values)
         plt.xlabel('Step')
         plt.ylabel(var.nice_name+" "+var.unit)
-        plt.title(var.nice_name+' variations NOvA-only')
+        plt.title(var.nice_name+' variations NOvA-only (1000 first steps)')
+        pdf.savefig()
+        plt.close()
+
+
+    for var in mcmcu.osc_variables:
+        print (var.tree_var_name)
+        values = var.change_of_var(mcmcu.get_var_array(tree, var))
+        plt.plot(values)
+        plt.xlabel('Step')
+        plt.ylabel(var.nice_name+" "+var.unit)
+        plt.title(var.nice_name+' variations NOvA-only (all steps after burnin)')
         pdf.savefig()
         plt.close()
 
 
     for var in mcmcu.nova_syst_variables:
         print (var.tree_var_name)
-        values = var.change_of_var(mcmcu.get_var_array(tree, var))[:1000]
+        values = var.change_of_var(mcmcu.get_var_array(tree, var))
         plt.plot(values)
         plt.xlabel('Step')
         plt.ylabel(var.nice_name+" "+var.unit)

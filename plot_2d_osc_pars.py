@@ -7,7 +7,7 @@ matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-tree = up.open("result.root")["result"]
+tree = up.open("main.root")["result"]
 color68="black"
 color90="dimgrey"
 color95="lightgrey"

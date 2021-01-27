@@ -1,7 +1,13 @@
 import uproot as up
 import numpy as np
+import argparse
 
-standard_burnin=500
+parser = argparse.ArgumentParser(description='MCMC Utils')
+parser.add_argument('input', nargs="+", help="the input file", required=True)
+parser.add_argument('--burnin', nargs='?', help='number of burnin steps', default=20000, type=int)
+argument = parser.parse_args()
+standard_burnin = argument.burnin
+input_file = argument.input[0]
 
 class Variable:
     def __init__(self, tree_var_name, nice_name, the_range, nbins, change_of_var, unit):
@@ -20,16 +26,94 @@ def sinsq2(val):
 
 def noop(val):
     return val
+syst_name_nova = [r"CCQE z-exp EV shift \#1",                                    # 0
+                  r"CCQE z-exp EV shift \#2",                                    # 1 
+                  r"CCQE z-exp EV shift \#3",                                    # 2 
+                  r"CCQE z-exp EV shift \#4",                                    # 3 
+                  r"MaCCRES",                                                    # 4 
+                  r"MvCCRES",                                                    # 5 
+                  r"MaNCRES",                                                    # 6 
+                  r"MvNCRES",                                                    # 7 
+                  r"ZNormCCQE",                                                  # 8 
+                  r"RPA shape: higher-$Q^{2}$ enhancement (2020)",               # 9 
+                  r"RPA shape: low-$Q^{2}$ suppression (2020)",                  #10 
+                  r"RES low-$Q^{2}$ suppression",                                #11 
+                  r"DIS $\nu nCC1\pi$",                                          #12 
+                  r"hN FSI mean free path",                                      #13 
+                  r"hN FSI fate fraction eigenvector",                           #14 
+                  r"MEC E$_{\nu}$ shape",                                        #15 
+                  r"MEC E$_{\bar{\nu}}$ shape",                                  #16 
+                  r"MEC 2020 ($q_{0}$, $|\vec{q}|$) response, neutrinos",        #17 
+                  r"MEC 2020 ($q_{0}$, $|\vec{q}|$) response, antineutrinos",    #18 
+                  r"MEC initial state np fraction, neutrinos",                   #19 
+                  r"MEC initial state np fraction, antineutrinos",               #20 
+                  r"Radiative corrections for $\nu_{e}$",                        #21 
+                  r"Radiative corrections for $\bar{\nu}_{e}$",                  #22 
+                  r"Second class currents",                                      #23 
+                  r"Genie PC 0",                                                 #24 
+                  r"Genie PC 1",                                                 #25 
+                  r"Genie PC 2",                                                 #26 
+                  r"Genie PC 3",                                                 #27 
+                  r"Genie PC 4",                                                 #28 
+                  r"Genie PC 5",                                                 #29 
+                  r"Genie PC 6",                                                 #30 
+                  r"Genie PC 7",                                                 #31 
+                  r"Genie PC 8",                                                 #32 
+                  r"Genie PC 9",                                                 #33 
+                  r"Genie PC 10",                                                #34 
+                  r"Genie PC 11",                                                #35 
+                  r"$\nu_{\tau}$ Scale",                                         #36 
+                  r"PPFX Flux Component 00",                                     #37 
+                  r"PPFX Flux Component 01",                                     #38 
+                  r"PPFX Flux Component 02",                                     #39 
+                  r"PPFX Flux Component 03",                                     #40 
+                  r"PPFX Flux Component 04",                                     #41 
+                  r"Absolute Calibration",                                       #42 
+                  r"Relative Calibration",                                       #43 
+                  r"Calibration Shape",                                          #44 
+                  r"Calibration Drift",                                          #45 
+                  r"Light Level FD",                                             #46 
+                  r"Light Level ND",                                             #47 
+                  r"Cherenkov",                                                  #48 
+                  r"Uncorr ND Mu Energy Scale 2020",                             #49 
+                  r"Uncorr MuCat Mu Energy 2020",                                #50 
+                  r"Neutron Pile-up 2020",                                       #51 
+                  r"Corr Mu Energy Scale 2020",                                  #52 
+                  r"Uncorr FD Mu Energy Scale 2020",                             #53 
+                  r"Neutron visible energy systematic 2018",                     #54 
+                  r"Acceptance ND to FD Kinematics Signal FHC 2020",             #55 
+                  r"Acceptance ND to FD Kinematics Signal RHC 2020",             #56 
+                  r"Michel Electrons Tagging Uncertainty"]                       #57 
 
-osc_variables = [Variable("val_dcp"  , "$\delta_{CP}$"          , [ 0     , 2.    ],  50, divide_by_2pi, "/ $\pi$"), # 0
-                 Variable("val_mh"   , "Mass hierarchy"         , [-1     , 1.    ],   2, noop         , ""),        # 1
-                 Variable("val_sth13", r"$\sin^2 \theta_{13}$"  , [ 0     , 0.05  ], 100, sinsq2       , ""),        # 2
-                 Variable("val_sth13", r"$\theta_{13}$"         , [ 0.1   , 0.25  ], 100, noop         , ""),        # 3
-                 Variable("val_sth23", r"$\sin^{2} \theta_{23}$", [ 0.4   , 0.65  ], 100, sinsq2       , ""),        # 4
-                 Variable("val_sth23", r"$\theta_{23}$"         , [ 0.65  , 0.95  ],  50, noop         , ""),        # 5
-                 Variable("val_dm32" , r"$\left|\Delta m^2_{32}\right|$"      , [ 0.0023, 0.0027],  50, noop         , "eV$^2$")]  # 6
+osc_variables = [Variable("val_dcp" , "$\delta_{CP}$"          , [ 0     , 2.    ],  50, divide_by_2pi, "/ $\pi$"), # 0
+                 Variable("val_mh"  , "Mass hierarchy"         , [-1     , 1.    ],   2, noop         , ""),        # 1
+                 Variable("val_th13", r"$\sin^{2} \theta_{13}$", [ 0     , 0.05  ], 100, sinsq2       , ""),        # 2
+                 Variable("val_th13", r"$\theta_{13}$"         , [ 0.1   , 0.25  ], 100, noop         , ""),        # 3
+                 Variable("val_th23", r"$\sin^{2} \theta_{23}$", [ 0.4   , 0.65  ], 100, sinsq2       , ""),        # 4
+                 Variable("val_th23", r"$\theta_{23}$"         , [ 0.65  , 0.95  ],  50, noop         , ""),        # 5
+                 Variable("val_dm32", r"$\left|\Delta m^2_{32}\right|$"      , [ 0.0023, 0.0027],  50, noop         , "eV$^2$")]  # 6
 
-nova_syst_variables = [Variable("val_nova_syst_"+str(i), r"NOvA syst \#"+str(i), [-5.,5.], 100, noop, "") for  i in range(0,58)]
+nova_syst_variables = [Variable("val_nova_syst_"+str(i), syst_name_nova[i], [-5.,5.], 100, noop, "") for  i in range(0,58)]
+grouped_nova_syst_variables = {"largest cross section": nova_syst_variables[:24],
+                               "other cross section"  : nova_syst_variables[24:37],
+                               "flux"                 : nova_syst_variables[37:41],
+                               "calibration"          : nova_syst_variables[42:46],
+                               "other"                : nova_syst_variables[46:]}
+
+
+def acf(x, lag):
+    # Slice the relevant subseries based on the lag
+    if len(x)-lag<=0:
+        print("x (length: "+str(len(x))+") is smaller than lag ("+str(lag)+").")
+        raise
+    y1 = x[:(len(x)-lag)]
+    y2 = x[lag:]
+    # print(lag,len(y1), len(y2))
+    # Subtract the mean of the whole series x to calculate Cov
+    mean=np.mean(x)
+    sum_product = np.sum((y1-mean)*(y2-mean))
+    # Normalize with var of whole series
+    return sum_product / ((len(x) - lag) * np.var(x))
 
 def autocorrelation(x):
     max_lag=20000
