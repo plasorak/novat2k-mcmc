@@ -3,7 +3,7 @@ import numpy as np
 import argparse
 
 parser = argparse.ArgumentParser(description='MCMC Utils')
-parser.add_argument('input', nargs="+", help="the input file", required=True)
+parser.add_argument('input', nargs="+", help="the input file")
 parser.add_argument('--burnin', nargs='?', help='number of burnin steps', default=20000, type=int)
 argument = parser.parse_args()
 standard_burnin = argument.burnin
@@ -87,8 +87,8 @@ syst_name_nova = [r"CCQE z-exp EV shift \#1",                                   
 
 osc_variables = [Variable("val_dcp" , "$\delta_{CP}$"          , [ 0     , 2.    ],  50, divide_by_2pi, "/ $\pi$"), # 0
                  Variable("val_mh"  , "Mass hierarchy"         , [-1     , 1.    ],   2, noop         , ""),        # 1
-                 Variable("val_th13", r"$\sin^{2} \theta_{13}$", [ 0     , 0.05  ], 100, sinsq2       , ""),        # 2
-                 Variable("val_th13", r"$\theta_{13}$"         , [ 0.1   , 0.25  ], 100, noop         , ""),        # 3
+                 Variable("val_th13", r"$\sin^{2} \theta_{13}$", [ 0.018 , 0.025 ], 100, sinsq2       , ""),        # 2
+                 Variable("val_th13", r"$\theta_{13}$"         , [ 0.12  , 0.17  ], 100, noop         , ""),        # 3
                  Variable("val_th23", r"$\sin^{2} \theta_{23}$", [ 0.4   , 0.65  ], 100, sinsq2       , ""),        # 4
                  Variable("val_th23", r"$\theta_{23}$"         , [ 0.65  , 0.95  ],  50, noop         , ""),        # 5
                  Variable("val_dm32", r"$\left|\Delta m^2_{32}\right|$"      , [ 0.0023, 0.0027],  50, noop         , "eV$^2$")]  # 6

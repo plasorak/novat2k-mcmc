@@ -6,7 +6,7 @@ matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-tree = up.open("result.root")["result"]
+tree = up.open(mcmcu.input_file)["result"]
 color="black"
 colorPrior="lightslategrey"
 color68="black"

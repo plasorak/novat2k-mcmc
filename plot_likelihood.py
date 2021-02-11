@@ -5,7 +5,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import mcmc_utils as mcmcu
 
 
-tree = up.open("main.root")["result"]
+tree = up.open(mcmcu.input_file)["result"]
 likelihood = tree["likelihood"     ].array()
 acceptance = tree["acceptance_rate"].array()
 step       = tree["step"           ].array()
@@ -34,13 +34,6 @@ with PdfPages('burnin.pdf') as pdf:
     pdf.savefig()
     plt.close()
 
-
-    std = [np.std(likelihood[i:i+100]) for i in range(900)]
-    plt.plot(std)
-    pdf.savefig()
-    plt.close()
-
-    
     plt.plot(step, acceptance)
     plt.xlabel('Step')
     plt.ylabel('acceptance rate')
