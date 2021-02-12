@@ -152,7 +152,7 @@ def get_var_array(tree, variable, burnin=None):
     
 def hdi(bin_val, prob):
     initial_shape = bin_val.shape
-    bin_val = bin_val.transpose().flatten()
+    bin_val = bin_val.flatten()
     
     s = np.sum(bin_val)
     if s>1.0001 or s<0.9999:
@@ -161,10 +161,12 @@ def hdi(bin_val, prob):
     
     max_value = np.max(bin_val)
     min_value = np.min(bin_val)
+    
     n_prob_step = 10000
-
     prob_values = np.linspace(min_value, max_value, n_prob_step)
+
     best_step = None
+
     previous_ci=0
     previous_mask=np.zeros(len(bin_val))
     

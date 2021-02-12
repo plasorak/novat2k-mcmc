@@ -6,6 +6,7 @@ matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
+
 tree = up.open(mcmcu.input_file)["result"]
 color="black"
 colorPrior="lightslategrey"
@@ -13,12 +14,21 @@ color68="black"
 color90="dimgrey"
 color95="lightgrey"
 
+import ROOT as root
+file_out = root.TFile("for_artur.root", "RECREATE")
+
+
 with PdfPages('osc_pars.pdf') as pdf:
     for var in mcmcu.osc_variables:
-
+        
         print (var.tree_var_name)
         dcp = var.tree_var_name.find("cp")>0
         (hist, bins) = mcmcu.get_histo(tree, var)
+        
+        histo = root.TH1D(var.tree_var_name, var.nice_name, len(bins), bins.min(), bins.max())
+        for i,content in enumerate(hist):
+            histo.SetBinContent(i+1, content)
+        histo.Write()
         
         if var.nice_name.find("hierarchy")>0:
             _, ax = plt.subplots()
@@ -49,7 +59,6 @@ with PdfPages('osc_pars.pdf') as pdf:
             plt.hist(bins[:-1], bins, weights=hist68, color=color68, label="Cred Interv=68\%")
             if var.nice_name.find("\sin^{2}")>0:
                 prior = 1. / (np.sqrt(bins * (1-bins)))
-                print(prior)
                 skimmed_bins = []
                 skimmed_prior = []
                 for i in range(len(prior)):
@@ -58,11 +67,10 @@ with PdfPages('osc_pars.pdf') as pdf:
                         skimmed_prior.append(prior[i])
                 prior = np.array(skimmed_prior)
                 binss = np.array(skimmed_bins )
-                print(prior)
                 middle_bin = int((len(prior)-1)/2)
                 # prior = prior / pir(0.5*(prior[middle_bin]+prior[middle_bin+1])) * hist[middle_bin] * 0.1
                 prior = prior / prior.max() * hist.max() * 0.1
-                print(prior)
+                
                 plt.plot(binss, prior, label="Prior: Flat in angle", color=colorPrior)
             else:
                 plt.plot([bins[0], bins[-1]], [hist.max()/10, hist.max()/10], label="Prior: Flat", color=colorPrior)
