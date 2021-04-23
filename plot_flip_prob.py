@@ -6,11 +6,10 @@ matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-tree = up.open("main.root")["result"]
 
 with PdfPages('mh_variation.pdf') as pdf:
-    var = mcmcu.osc_variables[1]
-    values = var.change_of_var(mcmcu.get_var_array(tree, var))
+    var = mcmcu.mh
+    values = var.change_of_var(mcmcu.get_var_array(var))
     plt.plot(values, label="MH time serie")
     values = (values+1)/2
     values = np.abs(np.diff(values))

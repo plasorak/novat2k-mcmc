@@ -5,25 +5,30 @@ import numpy as np
 matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import ROOT as root
 
+arg=mcmcu.arguments("osc_pars")
+#print(arg.calculate_yourself(60))
 
-tree = up.open(mcmcu.input_file)["result"]
 color="black"
 colorPrior="lightslategrey"
 color68="black"
 color90="dimgrey"
 color95="lightgrey"
 
-import ROOT as root
-file_out = root.TFile("for_artur.root", "RECREATE")
+file_out = root.TFile(arg.output.replace("pdf","root"), "RECREATE")
 
+output=arg.output
 
-with PdfPages('osc_pars.pdf') as pdf:
-    for var in mcmcu.osc_variables:
+with PdfPages(output) as pdf:
+    interesting_vars = [mcmcu.dcp, mcmcu.s2th23, mcmcu.s2th13, mcmcu.dm32, mcmcu.mh]
+    # interesting_vars = [mcmcu.mh]
+    
+    for var in interesting_vars:
         
         print (var.tree_var_name)
         dcp = var.tree_var_name.find("cp")>0
-        (hist, bins) = mcmcu.get_histo(tree, var)
+        (hist, bins) = mcmcu.get_histo(var, arg.input_trees, arg.burnin)
         
         histo = root.TH1D(var.tree_var_name, var.nice_name, len(bins), bins.min(), bins.max())
         for i,content in enumerate(hist):
@@ -76,9 +81,29 @@ with PdfPages('osc_pars.pdf') as pdf:
                 plt.plot([bins[0], bins[-1]], [hist.max()/10, hist.max()/10], label="Prior: Flat", color=colorPrior)
             plt.legend()
             
-        print(len(hist),len(bins),np.sum(hist))
         plt.xlabel(var.nice_name+" "+var.unit)
         plt.ylabel('Posterior Probability')
+        plt.title(var.nice_name+' NOvA-only')
+        pdf.savefig()
+        plt.close()
+        chi2 = []
+        for d in hist:
+            if d>0:
+                chi2.append(-2*np.log(d))
+            else:
+                chi2.append(np.inf)
+                
+        chi2 -= np.min(chi2)
+        maxchi2=np.max(chi2[chi2!=np.inf])
+        for i, d in enumerate(chi2):
+            if d==np.inf:
+                chi2[i]=maxchi2
+            else:
+                chi2[i]=d
+        
+        plt.hist(bins[:-1], bins, weights=chi2, histtype='step', color="black")
+        plt.xlabel(var.nice_name+" "+var.unit)
+        plt.ylabel('\"$\chi^2$\"')
         plt.title(var.nice_name+' NOvA-only')
         pdf.savefig()
         plt.close()

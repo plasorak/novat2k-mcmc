@@ -7,7 +7,6 @@ matplotlib.rcParams['text.usetex'] = True
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-tree = up.open(mcmcu.input_file)["result"]
 color68="black"
 color90="dimgrey"
 color95="lightgrey"
@@ -16,11 +15,12 @@ import ROOT as root
 file_out = root.TFile("for_artur_2d.root", "RECREATE")
 
 with PdfPages('osc_pars_2d.pdf') as pdf:
-    interesting_pairs = [[mcmcu.osc_variables[4],mcmcu.osc_variables[6]],
-                         [mcmcu.osc_variables[0],mcmcu.osc_variables[4]]]
+    interesting_pairs = [[mcmcu.s2th23, mcmcu.dm32  ],
+                         [mcmcu.dcp   , mcmcu.s2th23],
+                         [mcmcu.s2th13, mcmcu.dcp   ]]
     
     for pair in interesting_pairs:
-        hist, binsx, binsy = mcmcu.get_2dhisto(tree, pair[0], pair[1])
+        hist, binsx, binsy = mcmcu.get_2dhisto(pair[0], pair[1])
 
         ci68 = mcmcu.hdi(hist, prob=0.682689)
         ci90 = mcmcu.hdi(hist, prob=0.90    )

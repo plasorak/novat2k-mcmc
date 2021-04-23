@@ -1,190 +1,175 @@
+#include "TTree.h"
+#include "TFile.h"
+#include "TH2D.h"
+#include "TH1D.h"
+#include "TMath.h"
+#include "TCanvas.h"
+#include <string>
+#include <iostream>
+#include <algorithm>
+#include <map>
 
-void plot_posterior_predictive() {
-  auto file_in = TFile("posterior_predictive.root");
-  auto file_out = TFile("for_artur_pp.root", "RECREATE");
+enum data_sample {
+  nue_fhc=0,  
+  nue_rhc,
+  numu_fhc_1,
+  numu_fhc_2,
+  numu_fhc_3,
+  numu_fhc_4,
+  numu_rhc_1,
+  numu_rhc_2,
+  numu_rhc_3,
+  numu_rhc_4,
+  last
+};
 
-  TTree* bins = (TTree*) file_in.Get("bin_values");
-  std::vector<double>* nue_fhc    = nullptr;
-  std::vector<double>* nue_rhc    = nullptr;
-  std::vector<double>* numu_fhc_1 = nullptr;
-  std::vector<double>* numu_fhc_2 = nullptr;
-  std::vector<double>* numu_fhc_3 = nullptr;
-  std::vector<double>* numu_fhc_4 = nullptr;
-  std::vector<double>* numu_rhc_1 = nullptr;
-  std::vector<double>* numu_rhc_2 = nullptr;
-  std::vector<double>* numu_rhc_3 = nullptr;
-  std::vector<double>* numu_rhc_4 = nullptr;
+static const std::map<data_sample, std::string> sample_name {{nue_fhc   , "nue_fhc"   },
+                                                             {nue_rhc   , "nue_rhc"   },
+                                                             {numu_fhc_1, "numu_fhc_1"},
+                                                             {numu_fhc_2, "numu_fhc_2"},
+                                                             {numu_fhc_3, "numu_fhc_3"},
+                                                             {numu_fhc_4, "numu_fhc_4"},
+                                                             {numu_rhc_1, "numu_rhc_1"},
+                                                             {numu_rhc_2, "numu_rhc_2"},
+                                                             {numu_rhc_3, "numu_rhc_3"},
+                                                             {numu_rhc_4, "numu_rhc_4"}};
+
+void plot_posterior_predictive(std::string input, std::string output, std::string datafile="", bool first_step_best_fit=false) {
+  TFile* file_in = new TFile(input.c_str(), "READ");
+  TFile* data_in = nullptr;
+  if (datafile!= "")
+    data_in = new TFile(datafile.c_str(), "READ");
+  TFile* file_out = new TFile((output+".root").c_str(), "RECREATE");
+
+  TTree* bins = (TTree*) file_in->Get("bin_values");
+
+  std::map<data_sample, std::vector<double>*> samples;
+  std::map<data_sample, TH1D*> data;
+  std::map<data_sample, TH1D*> best_fit;
+  std::map<data_sample, TH2D*> predictions;
   
-  bins->SetBranchAddress("nue_fhc_bins"   , &nue_fhc   );
-  bins->SetBranchAddress("nue_rhc_bins"   , &nue_rhc   );
-  bins->SetBranchAddress("numu_fhc_1_bins", &numu_fhc_1);
-  bins->SetBranchAddress("numu_fhc_2_bins", &numu_fhc_2);
-  bins->SetBranchAddress("numu_fhc_3_bins", &numu_fhc_3);
-  bins->SetBranchAddress("numu_fhc_4_bins", &numu_fhc_4);
-  bins->SetBranchAddress("numu_rhc_1_bins", &numu_rhc_1);
-  bins->SetBranchAddress("numu_rhc_2_bins", &numu_rhc_2);
-  bins->SetBranchAddress("numu_rhc_3_bins", &numu_rhc_3);
-  bins->SetBranchAddress("numu_rhc_4_bins", &numu_rhc_4);
+  for (int ii=nue_fhc; ii<last; ii++) {
+    data_sample i = static_cast<data_sample>(ii);
+    std::string sname = sample_name.at(i);
+    
+    // deal with ttree branches
+    samples[i] = nullptr;
+    std::string branch_name = sname+"_bins";
+    bins->SetBranchAddress(branch_name.c_str(), &samples[i]);
 
-  TH1D* data_nue_fhc    = (TH1D*) file_in.Get("asimov_nue_fhc");
-  TH1D* data_nue_rhc    = (TH1D*) file_in.Get("asimov_nue_rhc");
-  TH1D* data_numu_fhc_1 = (TH1D*) file_in.Get("asimov_numu_fhc_1");
-  TH1D* data_numu_fhc_2 = (TH1D*) file_in.Get("asimov_numu_fhc_2");
-  TH1D* data_numu_fhc_3 = (TH1D*) file_in.Get("asimov_numu_fhc_3");
-  TH1D* data_numu_fhc_4 = (TH1D*) file_in.Get("asimov_numu_fhc_4");
-  TH1D* data_numu_rhc_1 = (TH1D*) file_in.Get("asimov_numu_rhc_1");
-  TH1D* data_numu_rhc_2 = (TH1D*) file_in.Get("asimov_numu_rhc_2");
-  TH1D* data_numu_rhc_3 = (TH1D*) file_in.Get("asimov_numu_rhc_3");
-  TH1D* data_numu_rhc_4 = (TH1D*) file_in.Get("asimov_numu_rhc_4");
+    std::string asimov_name = "asimov_"+sname;
+    // get the data
+    if (data_in == nullptr) {
+      data[i] = (TH1D*) file_in->Get(asimov_name.c_str());
+    } else {
+      data[i] = (TH1D*) data_in->Get(sname.c_str());
+    }
+    
+    best_fit[i] = (TH1D*) file_in->Get(asimov_name.c_str());
+    best_fit[i]->SetDirectory(0);
 
-  TH2D* prediction_nue_fhc    = new TH2D("pp_nue_fhc"   , "#nu_{e} FHC;E_{rec} / Analysis bin;n events", data_nue_fhc   ->GetXaxis()->GetNbins(), data_nue_fhc->GetXaxis()->GetXmin(),data_nue_fhc->GetXaxis()->GetXmax(), 1000, 0., data_nue_fhc   ->GetMaximum()*1.2);
-  TH2D* prediction_nue_rhc    = new TH2D("pp_nue_rhc"   , "#nu_{e} RHC;E_{rec} / Analysis bin;n events", data_nue_rhc   ->GetXaxis()->GetNbins(), data_nue_rhc->GetXaxis()->GetXmin(),data_nue_rhc->GetXaxis()->GetXmax(), 1000, 0., data_nue_rhc   ->GetMaximum()*1.2);
+    // Add the poissonian error
+    for (int ibin=1; ibin<=data[i]->GetXaxis()->GetNbins(); ++ibin) {
+      double bc = data[i]->GetBinContent(ibin);
+      if (i>2) {
+        data[i]->SetBinContent(ibin, bc             /data[i]->GetXaxis()->GetBinWidth(ibin)*0.1);
+        data[i]->SetBinError  (ibin, TMath::Sqrt(bc)/data[i]->GetXaxis()->GetBinWidth(ibin)*0.1);
+      } else {
+        data[i]->SetBinContent(ibin, bc             );
+        data[i]->SetBinError  (ibin, TMath::Sqrt(bc));
+      }
+      best_fit[i]->SetBinContent(ibin, 0.);
+      best_fit[i]->SetBinError  (ibin, 0.);
+    }
+
+    // create the th2d for the posterior predictive
+    std::string histname = "pp_"+sname;
+    int b = data[i]->GetMaximumBin();
+    double max = (data[i]->GetBinContent(b)+data[i]->GetBinError(b))*1.2;
+
+    if (sname.find("nue")!=std::string::npos) {
+      std::string hc = sname.substr(4,3);
+      std::transform(hc.begin(), hc.end(),hc.begin(), ::toupper);
+      
+      std::string title = "#nu_{e} "+hc+";E_{rec} / Analysis bin;Events";
+      
+      predictions[i] = new TH2D(histname.c_str(), title.c_str(),
+                                data[i]->GetXaxis()->GetNbins(), data[i]->GetXaxis()->GetXmin(), data[i]->GetXaxis()->GetXmax(), 100, 0., max);
+    } else {
+      std::string q  = sname.substr(9,1);
+      std::string hc = sname.substr(5,3);
+      std::transform(hc.begin(), hc.end(),hc.begin(), ::toupper);
+
+      std::string title = "#nu_{#mu} " +hc+" Q"+q+";E_{rec} GeV;Events / 0.1 GeV";
+      
+      predictions[i] = new TH2D(histname.c_str(), title.c_str(),
+                                data[i]->GetXaxis()->GetNbins(), data[i]->GetXaxis()->GetXbins()->GetArray(), 100, 0., max);
+    }
+    predictions[i]->SetStats(0);
+  }
   
-  TH2D* prediction_numu_fhc_1 = new TH2D("pp_numu_fhc_1", "#nu_{#mu} FHC Q1;E_{rec} GeV;n events", data_numu_fhc_1->GetXaxis()->GetNbins(), data_numu_fhc_1->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_fhc_1->GetMaximum()*1.2);
-  TH2D* prediction_numu_fhc_2 = new TH2D("pp_numu_fhc_2", "#nu_{#mu} FHC Q2;E_{rec} GeV;n events", data_numu_fhc_2->GetXaxis()->GetNbins(), data_numu_fhc_2->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_fhc_2->GetMaximum()*1.2);
-  TH2D* prediction_numu_fhc_3 = new TH2D("pp_numu_fhc_3", "#nu_{#mu} FHC Q3;E_{rec} GeV;n events", data_numu_fhc_3->GetXaxis()->GetNbins(), data_numu_fhc_3->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_fhc_3->GetMaximum()*1.2);
-  TH2D* prediction_numu_fhc_4 = new TH2D("pp_numu_fhc_4", "#nu_{#mu} FHC Q4;E_{rec} GeV;n events", data_numu_fhc_4->GetXaxis()->GetNbins(), data_numu_fhc_4->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_fhc_4->GetMaximum()*1.2);
-  TH2D* prediction_numu_rhc_1 = new TH2D("pp_numu_rhc_1", "#nu_{#mu} RHC Q1;E_{rec} GeV;n events", data_numu_rhc_1->GetXaxis()->GetNbins(), data_numu_rhc_1->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_rhc_1->GetMaximum()*1.2);
-  TH2D* prediction_numu_rhc_2 = new TH2D("pp_numu_rhc_2", "#nu_{#mu} RHC Q2;E_{rec} GeV;n events", data_numu_rhc_2->GetXaxis()->GetNbins(), data_numu_rhc_2->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_rhc_2->GetMaximum()*1.2);
-  TH2D* prediction_numu_rhc_3 = new TH2D("pp_numu_rhc_3", "#nu_{#mu} RHC Q3;E_{rec} GeV;n events", data_numu_rhc_3->GetXaxis()->GetNbins(), data_numu_rhc_3->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_rhc_3->GetMaximum()*1.2);
-  TH2D* prediction_numu_rhc_4 = new TH2D("pp_numu_rhc_4", "#nu_{#mu} RHC Q4;E_{rec} GeV;n events", data_numu_rhc_4->GetXaxis()->GetNbins(), data_numu_rhc_4->GetXaxis()->GetXbins()->GetArray(), 1000, 0., data_numu_rhc_4->GetMaximum()*1.2);
-
-  prediction_nue_fhc   ->SetStats(0);
-  prediction_nue_rhc   ->SetStats(0);
-  prediction_numu_fhc_1->SetStats(0);
-  prediction_numu_fhc_2->SetStats(0);
-  prediction_numu_fhc_3->SetStats(0);
-  prediction_numu_fhc_4->SetStats(0);
-  prediction_numu_rhc_1->SetStats(0);
-  prediction_numu_rhc_2->SetStats(0);
-  prediction_numu_rhc_3->SetStats(0);
-  prediction_numu_rhc_4->SetStats(0);
-
-
+  std::cout << "\033[32mdone initiating\033[0m\n";
   for (int i=0; i<bins->GetEntries(); i++) {
     bins->GetEntry(i);
-    if (i<2000) continue;
+    if (i==0 and first_step_best_fit) {
+      for (int ii=nue_fhc; ii<last; ii++) {
+        data_sample i = static_cast<data_sample>(ii);
+        for (size_t bx=0; bx<samples[i]->size(); ++bx) {
+          double bc = best_fit[i]->GetXaxis()->GetBinCenter(bx);
+          if (i>2) {
+            best_fit[i]->SetBinContent(bx,samples[i]->at(bx)/data[i]->GetXaxis()->GetBinWidth(bx)*0.1);
+          } else {
+            best_fit[i]->SetBinContent(bx,samples[i]->at(bx));
+          }
+        }
+      }
+      continue;
+    }
+    
     if (i%10000==0) std::cout << "\033[32mi : " << i << "\033[0m\n";
-    for (size_t bx=0; bx<nue_fhc->size(); ++bx) {
-      double bc = prediction_nue_fhc->GetXaxis()->GetBinCenter(bx);
-      prediction_nue_fhc->Fill(bc,nue_fhc->at(bx));
-    }
-    for (size_t bx=0; bx<nue_rhc->size(); ++bx) {
-      double bc = prediction_nue_rhc->GetXaxis()->GetBinCenter(bx);
-      prediction_nue_rhc->Fill(bc,nue_rhc->at(bx));
-    }
-    for (size_t bx=0; bx<numu_rhc_4->size(); ++bx) {
-      double bc = prediction_numu_rhc_4->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_rhc_4->Fill(bc,numu_rhc_4->at(bx));
-    }
-    for (size_t bx=0; bx<numu_rhc_1->size(); ++bx) {
-      double bc = prediction_numu_rhc_1->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_rhc_1->Fill(bc,numu_rhc_1->at(bx));
-    }
-    for (size_t bx=0; bx<numu_rhc_2->size(); ++bx) {
-      double bc = prediction_numu_rhc_2->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_rhc_2->Fill(bc,numu_rhc_2->at(bx));
-    }
-    for (size_t bx=0; bx<numu_rhc_3->size(); ++bx) {
-      double bc = prediction_numu_rhc_3->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_rhc_3->Fill(bc,numu_rhc_3->at(bx));
-    }
-    for (size_t bx=0; bx<numu_fhc_4->size(); ++bx) {
-      double bc = prediction_numu_fhc_4->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_fhc_4->Fill(bc,numu_fhc_4->at(bx));
-    }
-    for (size_t bx=0; bx<numu_fhc_1->size(); ++bx) {
-      double bc = prediction_numu_fhc_1->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_fhc_1->Fill(bc,numu_fhc_1->at(bx));
-    }
-    for (size_t bx=0; bx<numu_fhc_2->size(); ++bx) {
-      double bc = prediction_numu_fhc_2->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_fhc_2->Fill(bc,numu_fhc_2->at(bx));
-    }
-    for (size_t bx=0; bx<numu_fhc_3->size(); ++bx) {
-      double bc = prediction_numu_fhc_3->GetXaxis()->GetBinCenter(bx);
-      prediction_numu_fhc_3->Fill(bc,numu_fhc_3->at(bx));
+
+    for (int ii=nue_fhc; ii<last; ii++) {
+      data_sample i = static_cast<data_sample>(ii);
+      for (size_t bx=0; bx<samples[i]->size(); ++bx) {
+        double bc = predictions[i]->GetXaxis()->GetBinCenter(bx);
+        if (i>2) {
+          predictions[i]->Fill(bc,samples[i]->at(bx)/data[i]->GetXaxis()->GetBinWidth(bx)*0.1);
+        } else {
+          predictions[i]->Fill(bc,samples[i]->at(bx));
+        }
+      }
     }
   }
 
   TCanvas c;
-  c.Print("posterior_predictive.pdf[");
-  prediction_nue_fhc->Draw("COLZ");
-  data_nue_fhc->SetLineColor(kBlack);
-  data_nue_fhc->SetLineWidth(2);
-  data_nue_fhc->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  prediction_nue_rhc->Draw("COLZ");
-  data_nue_rhc->SetLineColor(kBlack);
-  data_nue_rhc->SetLineWidth(2);
-  data_nue_rhc->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  
-  prediction_numu_fhc_1->Draw("COLZ");
-  data_numu_fhc_1->SetLineColor(kBlack);
-  data_numu_fhc_1->SetLineWidth(2);
-  data_numu_fhc_1->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  prediction_numu_fhc_2->Draw("COLZ");
-  data_numu_fhc_2->SetLineColor(kBlack);
-  data_numu_fhc_2->SetLineWidth(2);
-  data_numu_fhc_2->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  prediction_numu_fhc_3->Draw("COLZ");
-  data_numu_fhc_3->SetLineColor(kBlack);
-  data_numu_fhc_3->SetLineWidth(2);
-  data_numu_fhc_3->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  prediction_numu_fhc_4->Draw("COLZ");
-  data_numu_fhc_4->SetLineColor(kBlack);
-  data_numu_fhc_4->SetLineWidth(2);
-  data_numu_fhc_4->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  
-  prediction_numu_rhc_1->Draw("COLZ");
-  data_numu_rhc_1->SetLineColor(kBlack);
-  data_numu_rhc_1->SetLineWidth(2);
-  data_numu_rhc_1->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  prediction_numu_rhc_2->Draw("COLZ");
-  data_numu_rhc_2->SetLineColor(kBlack);
-  data_numu_rhc_2->SetLineWidth(2);
-  data_numu_rhc_2->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  prediction_numu_rhc_3->Draw("COLZ");
-  data_numu_rhc_3->SetLineColor(kBlack);
-  data_numu_rhc_3->SetLineWidth(2);
-  data_numu_rhc_3->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  prediction_numu_rhc_4->Draw("COLZ");
-  data_numu_rhc_4->SetLineColor(kBlack);
-  data_numu_rhc_4->SetLineWidth(2);
-  data_numu_rhc_4->Draw("SAME");
-  c.Print("posterior_predictive.pdf");
-  
-  c.Print("posterior_predictive.pdf]");
+  gPad->SetRightMargin(1.2*gPad->GetRightMargin());
+  c.Print((output+".pdf[").c_str());
+  for (int ii=nue_fhc; ii<last; ++ii) {
+    data_sample i = static_cast<data_sample>(ii);
+    CenterTitles(predictions[i]);
+    predictions[i]->Draw("COLZ");
+    data       [i]->SetLineColor  (kOrange-6);
+    data       [i]->SetMarkerColor(kOrange-6);
+    data       [i]->SetLineStyle(2);
+    data       [i]->SetLineWidth(2);
+    data       [i]->Draw("SAME");
+    if (first_step_best_fit) {
+      best_fit   [i]->SetLineColor  (kRed);
+      best_fit   [i]->SetMarkerColor(kRed);
+      best_fit   [i]->SetLineWidth(2);
+      best_fit   [i]->Draw("SAME");
+    }
+    gPad->RedrawAxis();
+    c.Print((output+".pdf").c_str());
+  }
+  c.Print((output+".pdf]").c_str());
 
-
-  file_out.cd();  
-  prediction_nue_fhc    ->Write();
-  data_nue_fhc          ->Write();
-  prediction_nue_rhc    ->Write();
-  data_nue_rhc          ->Write();
-  prediction_numu_fhc_1 ->Write();
-  data_numu_fhc_1       ->Write();
-  prediction_numu_fhc_2 ->Write();
-  data_numu_fhc_2       ->Write();
-  prediction_numu_fhc_3 ->Write();
-  data_numu_fhc_3       ->Write();
-  prediction_numu_fhc_4 ->Write();
-  data_numu_fhc_4       ->Write();
-  prediction_numu_rhc_1 ->Write();
-  data_numu_rhc_1       ->Write();
-  prediction_numu_rhc_2 ->Write();
-  data_numu_rhc_2       ->Write();
-  prediction_numu_rhc_3 ->Write();
-  data_numu_rhc_3       ->Write();
-  prediction_numu_rhc_4 ->Write();
-  data_numu_rhc_4       ->Write();
+  file_out->cd();
+  for (int ii=nue_fhc; ii<last; ++ii) {
+    data_sample i = static_cast<data_sample>(ii);
+    predictions[i]->Write();
+    data       [i]->Write();
+  }
+  file_out->Close();
 
 }
