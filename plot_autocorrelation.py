@@ -47,7 +47,7 @@ with PdfPages(output) as pdf:
         pdf.savefig()
         plt.close()
 
-    interesting_vars = [mcmcu.dcp, mcmcu.s2th23, mcmcu.s2th13, mcmcu.dm32]
+    interesting_vars = [mcmcu.llh, mcmcu.dcp, mcmcu.s2th23, mcmcu.s2th13, mcmcu.dm32]
     
     for var in interesting_vars:
         get_acf(var)

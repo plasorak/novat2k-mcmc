@@ -8,7 +8,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import ROOT as root
 
 arg=mcmcu.arguments("osc_pars")
-#print(arg.calculate_yourself(60))
+arg.parse()
 
 color="black"
 colorPrior="lightslategrey"
@@ -21,16 +21,26 @@ file_out = root.TFile(arg.output.replace("pdf","root"), "RECREATE")
 output=arg.output
 
 with PdfPages(output) as pdf:
-    interesting_vars = [mcmcu.dcp, mcmcu.s2th23, mcmcu.s2th13, mcmcu.dm32, mcmcu.mh]
+    interesting_vars = []
+    if arg.argument.cafana:
+        interesting_vars = [mcmcu.cafana_llh ,
+                            mcmcu.cafana_dcp ,
+                            mcmcu.cafana_mh  ,
+                            mcmcu.cafana_th13,
+                            mcmcu.cafana_th23,
+                            mcmcu.cafana_dm32]
+    else:
+        interesting_vars = [mcmcu.dcp, mcmcu.s2th23, mcmcu.s2th13, mcmcu.dm32]
+    # interesting_vars = [mcmcu.dcp, mcmcu.s2th23, mcmcu.s2th13, mcmcu.dm32, mcmcu.mh]
     # interesting_vars = [mcmcu.mh]
     
     for var in interesting_vars:
         
         print (var.tree_var_name)
         dcp = var.tree_var_name.find("cp")>0
-        (hist, bins) = mcmcu.get_histo(var, arg.input_trees, arg.burnin)
+        (hist, bins) = mcmcu.get_histo(var)
         
-        histo = root.TH1D(var.tree_var_name, var.nice_name, len(bins), bins.min(), bins.max())
+        histo = root.TH1D(var.tree_var_name, var.nice_name, len(bins)-1, bins.min(), bins.max())
         for i,content in enumerate(hist):
             histo.SetBinContent(i+1, content)
         histo.Write()

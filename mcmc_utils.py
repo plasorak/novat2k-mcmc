@@ -18,9 +18,11 @@ class arguments:
     def __init__(self, name):
         self.name = name
         self.parser = argparse.ArgumentParser(description='MCMC Utils')
+        self.parser.add_argument('--cafana'    ,                      help="Whether input file is cafana/stan format or not", action="store_true")
         self.parser.add_argument('--input'     , nargs="+",           help="Input file, if you are comparing different chain, add --comparison")
         self.parser.add_argument('--burnin'    , nargs='?', type=int, help='Number of burnin steps', default=20000)
-        # self.parser.add_argument("--stride"  , nargs=1,   type=int, help="Stride parameter over the MCMC")
+        self.parser.add_argument('--nsubfile'  , nargs='?', type=int, help='Number of subfiles before hadding', default=1)
+        # self.parser.add_argument("--stride"  , nargs=1,   type=int, help="Stride parameter over the MCMC")ll
         self.parser.add_argument("--nstepmax"  , nargs=1,   type=int, help="Maximum number of steps to consider", default=[-1])
         self.parser.add_argument('--output'    , nargs=1,   type=str, help='Output name (default is some clever combination of the name of the plotter you are running and the name of the file)')
         # self.parser.add_argument('--list'      ,                      help='Whether the input is a list', action='store_true')
@@ -30,10 +32,10 @@ class arguments:
     def parse(self):
         self.argument    = self.parser.parse_args()
         params.burnin    = self.argument.burnin
-        input_file  = self.argument.input
+        input_file       = self.argument.input
         self.do_compare  = self.argument.comparison
         params.do_compare=self.do_compare
-        
+
         params.nsteps          = 0
         params.nsteps_noburnin = 0
         params.nsteps_max      = self.argument.nstepmax[0]
@@ -45,7 +47,10 @@ class arguments:
         self.output = self.name+"_"
         if type(input_file)==str:
             self.output += input_file.split(r".root")[0]+"_plot.pdf"
-            t=up.open(input_file)["result"]
+            if not self.argument.cafana:
+                t=up.open(input_file)["result"]
+            else:
+                t=up.open(input_file)["run/samples"]
             params.input_trees.append(t)
             if not self.do_compare:
                 params.nsteps+=t.num_entries
@@ -54,7 +59,10 @@ class arguments:
         if type(input_file)==list:
             for i in input_file:
                 self.output+=i.split(r".root")[0]+"_"
-                t=up.open(i)["result"]
+                if not self.argument.cafana:
+                    t=up.open(i)["result"]
+                else:
+                    t=up.open(i)["run/samples"]
                 params.input_trees.append(t)
                 if not self.do_compare:
                     params.nsteps+=t.num_entries
@@ -62,7 +70,7 @@ class arguments:
             self.output+="plot.pdf"
             
         if self.argument.output is not None:
-            self.output = argument.output[0]
+            self.output = self.argument.output[0]
 
         if not self.do_compare:
             print(f"Parsed {len(params.input_trees)} input file(s), with a total of {params.nsteps/1000000.}M entries in them (and {params.nsteps_noburnin/1000000.}M excluding {params.burnin/1000}k burnin steps for each of them).")
@@ -93,6 +101,10 @@ def sinsq2(val):
 
 def noop(val):
     return val
+
+def mabs(val):
+    return abs(val)
+
 syst_name_nova = [r"CCQE z-exp EV shift \#1",                                    # 0
                   r"CCQE z-exp EV shift \#2",                                    # 1 
                   r"CCQE z-exp EV shift \#3",                                    # 2 
@@ -152,15 +164,92 @@ syst_name_nova = [r"CCQE z-exp EV shift \#1",                                   
                   r"Acceptance ND to FD Kinematics Signal RHC 2020",             #56 
                   r"Michel Electrons Tagging Uncertainty"]                       #57 
 
-dcp    = Variable("val_dcp" , "$\delta_{CP}$"                  , [ 0     , 2.    ], 100, divide_by_pi, "/ $\pi$")
-mh     = Variable("val_mh"  , "Mass hierarchy"                 , [-1     , 1.    ],   2, noop        , ""       )
-s2th13 = Variable("val_th13", r"$\sin^{2} \theta_{13}$"        , [ 0.01  , 0.04  ], 100, sinsq2      , ""       )
-th13   = Variable("val_th13", r"$\theta_{13}$"                 , [ 0.1   , 0.2   ], 100, divide_by_pi, "/ $\pi$")
-s2th23 = Variable("val_th23", r"$\sin^{2} \theta_{23}$"        , [ 0.3   , 0.7   ], 100, sinsq2      , ""       )
-th23   = Variable("val_th23", r"$\theta_{23}$"                 , [ 0.65  , 0.95  ], 100, divide_by_pi, "/ $\pi$")
-dm32   = Variable("val_dm32", r"$\left|\Delta m^2_{32}\right|$", [ 0.0023, 0.0026], 100, noop        , "eV$^2$" )
+llh    = Variable("loglikelihood", "log likelihood"            , [ -10 , 0    ], 100, noop, "")
+dcp    = Variable("val_dcp" , "$\delta_{CP}$"                  , [ 0    , 2.    ], 50, divide_by_pi, "/ $\pi$")
+mh     = Variable("val_mh"  , "Mass hierarchy"                 , [-1    , 1.    ],   2, noop        , ""       )
+s2th13 = Variable("val_th13", r"$\sin^{2} \theta_{13}$"        , [ 0.1, 0.2  ], 100, sinsq2      , ""       )
+th13   = Variable("val_th13", r"$\theta_{13}$"                 , [ 0.14, 0.16   ], 100, noop, "/ $\pi$")
+s2th23 = Variable("val_th23", r"$\sin^{2} \theta_{23}$"        , [ 0.3  , 0.7   ], 100, sinsq2      , ""       )
+th23   = Variable("val_th23", r"$\theta_{23}$"                 , [ 0.65 , 0.95  ], 50, noop, "/ $\pi$")
+dm32   = Variable("val_dm32", r"$\left|\Delta m^2_{32}\right|$", [ 0.002, 0.0028], 100, noop        , "eV$^2$" )
+
+cafana_llh    = Variable("logprob"  , "log likelihood"                 , [-10  , 0    ], 100, noop, "")
+cafana_dcp    = Variable("delta(pi)", "$\delta_{CP}$"                  , [ 0    , 2.    ], 50, noop, "/ $\pi$")
+cafana_mh     = Variable("MH"       , "Mass hierarchy"                 , [-1    , 1.    ],   2, noop, ""       )
+cafana_th13   = Variable("th13"     , r"$\theta_{13}$"                 , [ 0.14  , 0.16   ], 100, noop, "/ $\pi$")
+cafana_th23   = Variable("th23"     , r"$\theta_{23}$"                 , [ 0.65 , 0.95  ], 50, noop, "/ $\pi$")
+cafana_dm32   = Variable("dmsq32"   , r"$\left|\Delta m^2_{32}\right|$", [ 0.002, 0.0028], 100, mabs, "eV$^2$" )
 
 nova_syst_variables = [Variable("val_nova_syst_"+str(i), syst_name_nova[i], [-5.,5.], 100, noop, "") for i in range(0,58)]
+nova_syst_name = ["ZExpAxialFFSyst2020_EV1",
+                  "ZExpAxialFFSyst2020_EV2",
+                  "ZExpAxialFFSyst2020_EV3",
+                  "ZExpAxialFFSyst2020_EV4",
+                  "MaCCRES",
+                  "MvCCRES",
+                  "MaNCRES",
+                  "MvNCRES",
+                  "ZNormCCQE",
+                  "RPAShapeenh2020",
+                  "RPAShapesupp2020",
+                  "LowQ2RESSupp2020",
+                  "DISvnCC1pi_2020",
+                  "hNFSI_MFP_2020",
+                  "hNFSI_FateFracEV1_2020",
+                  "MECEnuShape2020Nu",
+                  "MECEnuShape2020AntiNu",
+                  "MECShape2020Nu",
+                  "MECShape2020AntiNu",
+                  "MECInitStateNPFrac2020Nu",
+                  "MECInitStateNPFrac2020AntiNu",
+                  "radcorrnue",
+                  "radcorrnuebar",
+                  "2ndclasscurr",
+                  "genie_small_pc00",
+                  "genie_small_pc01",
+                  "genie_small_pc02",
+                  "genie_small_pc03",
+                  "genie_small_pc04",
+                  "genie_small_pc05",
+                  "genie_small_pc06",
+                  "genie_small_pc07",
+                  "genie_small_pc08",
+                  "genie_small_pc09",
+                  "genie_small_pc10",
+                  "genie_small_pc11",
+                  "NuTauScale",
+                  "ppfx_hadp_beam_pc00",
+                  "ppfx_hadp_beam_pc01",
+                  "ppfx_hadp_beam_pc02",
+                  "ppfx_hadp_beam_pc03",
+                  "ppfx_hadp_beam_pc04",
+                  "Calibration",
+                  "RelativeCalib",
+                  "CalibShape",
+                  "CalibDrift",
+                  "Light_Level_FD",
+                  "Light_Level_ND",
+                  "Cherenkov",
+                  "UnCorrNDMuEScaleSyst2020",
+                  "UnCorrMuCatMuESyst2020",
+                  "PileupMuESyst2020",
+                  "CorrMuEScaleSyst2020",
+                  "UnCorrFDMuEScaleSyst2020",
+                  "LeptonAngleSystNDXZ2020",
+                  "LeptonAngleSystNDYZ2020",
+                  "LeptonAngleSystFDXZ2020",
+                  "LeptonAngleSystFDYZ2020",
+                  "NeutronEvisPrimariesSyst2018",
+                  "NormHornCorr",
+                  "NormFHC2020",
+                  "NormRHC2020",
+                  "accept_signalkin_pTextrap_FHC_2020",
+                  "accept_signalkin_pTextrap_RHC_2020",
+                  "michel_tagging2020",
+                  "RockScale",
+                  "cosmicScale"]
+cafana_nova_syst_variables = [Variable(nova_syst_name[i], syst_name_nova[i], [-5.,5.], 100, noop, "") for i in range(58)]
+
 grouped_nova_syst_variables = {"largest cross section": nova_syst_variables[:24],
                                "other cross section"  : nova_syst_variables[24:37],
                                "flux"                 : nova_syst_variables[37:41],
